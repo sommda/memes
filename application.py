@@ -1,4 +1,6 @@
 #!flask/bin/python
+from boto.s3.connection import S3Connection
+from boto.s3.key import Key
 from flask import Flask, jsonify, abort, request, make_response, redirect, url_for
 from werkzeug import secure_filename
 import os
@@ -9,6 +11,9 @@ ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
 application = Flask(__name__)
 application.debug=True
 application.config['UPLOAD_FOLDER'] = '/Users/sommda/python/memes_service/files'
+
+conn = S3Connection('AKIAIR6KVOWNHSWCGGHQ', '3TCc+54FSTcT85pNpwEMQhUJ5gZrF4wYnP1KKnLE')
+bucket = conn.get_bucket('meme-images-us-west-2', validate = False)
 
 tasks = [
     {
@@ -70,8 +75,15 @@ def create_image():
     uploaded_file = request.files['file']
     if uploaded_file and allowed_file(uploaded_file.filename):
         hash = hash_file_contents(uploaded_file)
-        uploaded_file.save(os.path.join(application.config['UPLOAD_FOLDER'], hash))
-        return jsonify( { 'hash': hash, 'filename': uploaded_file.filename } )
+        key = bucket.get_key(hash)
+        if key:
+            return jsonify( { 'hash': hash, 'message': 'Image already uploaded' } )
+        else:
+            key = bucket.new_key(hash)
+            key.set_contents_from_file(uploaded_file, rewind = True)
+            key.set_metadata('filename', uploaded_file.filename)
+            return jsonify( { 'hash': hash, 'message': 'Image created',
+                              'filename': uploaded_file.filename } )
     else:
         abort(400)
 
