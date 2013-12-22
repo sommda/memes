@@ -2,6 +2,7 @@
 from flask import Flask, jsonify, abort, request, make_response, redirect, url_for
 from werkzeug import secure_filename
 import os
+import hashlib
 
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
 
@@ -26,6 +27,15 @@ tasks = [
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
+
+def hash_file_contents(file, block_size=2**14):
+    hash = hashlib.sha1()
+    while True:
+        data = file.read(block_size)
+        if not data:
+            break;
+        hash.update(data)
+    return hash.hexdigest()
 
 @application.route('/')
 def hello_world():
@@ -59,9 +69,9 @@ def create_task():
 def create_image():
     uploaded_file = request.files['file']
     if uploaded_file and allowed_file(uploaded_file.filename):
-        filename = secure_filename(uploaded_file.filename)
-        uploaded_file.save(os.path.join(application.config['UPLOAD_FOLDER'], filename))
-        return jsonify( { 'filename': filename } )
+        hash = hash_file_contents(uploaded_file)
+        uploaded_file.save(os.path.join(application.config['UPLOAD_FOLDER'], hash))
+        return jsonify( { 'hash': hash, 'filename': uploaded_file.filename } )
     else:
         abort(400)
 
