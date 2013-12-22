@@ -1,11 +1,13 @@
 #!flask/bin/python
-from flask import Flask, jsonify
-from flask import abort
-from flask import make_response
-from flask import request
+from flask import Flask, jsonify, abort, request, make_response, redirect, url_for
+from werkzeug import secure_filename
+import os
+
+ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
 
 application = Flask(__name__)
 application.debug=True
+application.config['UPLOAD_FOLDER'] = '/Users/sommda/python/memes_service/files'
 
 tasks = [
     {
@@ -21,6 +23,9 @@ tasks = [
         'done': False
     }
 ]
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
 
 @application.route('/')
 def hello_world():
@@ -50,6 +55,16 @@ def create_task():
     tasks.append(task)
     return jsonify( { 'task': task } ), 201
 
+@application.route('/api/v1.0/images', methods = ['POST'])
+def create_image():
+    uploaded_file = request.files['file']
+    if uploaded_file and allowed_file(uploaded_file.filename):
+        filename = secure_filename(uploaded_file.filename)
+        uploaded_file.save(os.path.join(application.config['UPLOAD_FOLDER'], filename))
+        return jsonify( { 'filename': filename } )
+    else:
+        abort(400)
+
 @application.route('/todo/api/v1.0/tasks/<int:task_id>', methods = ['PUT'])
 def update_task(task_id):
     task = filter(lambda t: t['id'] == task_id, tasks)
@@ -75,6 +90,18 @@ def delete_task(task_id):
         abort(404)
     tasks.remove(task[0])
     return jsonify( { 'result': True } )
+
+@application.route('/upload', methods = ['GET'])
+def upload_page():
+    return '''
+    <!doctype html>
+    <title>Upload new file</title>
+    <h1>Upload new file</h1>
+    <form action="/api/v1.0/images" method=post enctype=multipart/form-data>
+      <p><input type=file name=file>
+         <input type=submit value=Upload>
+    </form>
+    '''
 
 @application.errorhandler(404)
 def not_found(error):
