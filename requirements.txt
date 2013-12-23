@@ -5,5 +5,4 @@ Pillow==2.2.2
 Werkzeug==0.9.4
 boto==2.21.0
 itsdangerous==0.23
-pyobjc==2.2
 wsgiref==0.1.2
