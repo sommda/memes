@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Meme Generator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Boostrap CSS -->
+    <link href="dist/css/bootstrap.min.css" rel="stylesheet">
+  </head>
+
+  <body>
+    <!-- JQuery -->
+    <script type="text/javascript" src="jquery-2.0.3.js"></script>
+
+    <!-- Bootstrap JS -->
+    <script src="dist/js/bootstrap.min.js"></script>
+
+    <!-- Memegen JS -->
+    <script src="memegen.js"></script>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-default" role="navigation">
+      <!-- Brand and toggle get grouped for better mobile display -->
+      <div class="navbar-header">
+	<button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+	  <span class="sr-only">Toggle navigation</span>
+	  <span class="icon-bar"></span>
+	  <span class="icon-bar"></span>
+	  <span class="icon-bar"></span>
+	</button>
+	<a class="navbar-brand" href="#">Meme Generator</a>
+      </div>
+
+      <!-- Collect the nav links, forms, and other content for toggling -->
+      <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+	<ul class="nav navbar-nav">
+	  <li class="active"><a href="#">Link</a></li>
+	  <li><a href="#">Link</a></li>
+	  <li class="dropdown">
+            <a href="#" class="dropdown-toggle" data-toggle="dropdown">Dropdown <b class="caret"></b></a>
+            <ul class="dropdown-menu">
+              <li><a href="#">Action</a></li>
+              <li><a href="#">Another action</a></li>
+              <li><a href="#">Something else here</a></li>
+              <li class="divider"></li>
+              <li><a href="#">Separated link</a></li>
+              <li class="divider"></li>
+              <li><a href="#">One more separated link</a></li>
+            </ul>
+	  </li>
+	</ul>
+	<form class="navbar-form navbar-left" role="search">
+	  <div class="form-group">
+            <input type="text" class="form-control" placeholder="Search">
+	  </div>
+	  <button type="submit" class="btn btn-default">Submit</button>
+	</form>
+	<ul class="nav navbar-nav navbar-right">
+	  <li><a href="#">Link</a></li>
+	  <li class="dropdown">
+            <a href="#" class="dropdown-toggle" data-toggle="dropdown">Dropdown <b class="caret"></b></a>
+            <ul class="dropdown-menu">
+              <li><a href="#">Action</a></li>
+              <li><a href="#">Another action</a></li>
+              <li><a href="#">Something else here</a></li>
+              <li class="divider"></li>
+              <li><a href="#">Separated link</a></li>
+            </ul>
+	  </li>
+	</ul>
+      </div><!-- /.navbar-collapse -->
+    </nav>
+
+    <div class="container">
+      <div class="row">
+	<h3>Make a meme</h3>
+      </div>
+      <div class="row">
+      <div class="col-lg-6">
+	<div class="row">Image <input id="image-hash" class="form-control" placeholder="Image Hash"></input></div>
+	<div class="row">Top Text <input id="top-text" class="form-control" placeholder="Top Text"></input></div>
+	<div class="row">Bottom Text <input id="bottom-text" class="form-control" placeholder="Bottom Text"></input></div>
+	<div class="row"><button id="go" class="btn btn-default">Go!</button>
+	<button id="get-images" class="btn btn-default"></div>
+	<div class="row" id="image-holder"></div>
+      </div>
+      <div class="col-lg-6">
+	<canvas id="meme" width="800" height="600" style="border:1px solid #000000;">
+	</canvas>
+      </div>
+      </div>
+    </div>
+  </body>
+</html>

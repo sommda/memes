@@ -84,21 +84,23 @@ def bottom_text_pos(imagesize,textsize,margin):
     ycoord = imagesize[1]-textsize[1]-margin[1]-20
     return (xcoord,ycoord)
 
-def make_meme(image, toptext, bottomtext, typeface="fonts/Impact.ttf", color="white"):
-    font = ImageFont.truetype(typeface, 120)
+def make_meme(image, toptext, bottomtext, textsize, textface="fonts/Impact.ttf", color="white"):
+    font = ImageFont.truetype(textface, textsize)
     margin = (10,10)
 
     out_image = image.convert("RGBA")
     textlayer = Image.new("RGBA", out_image.size, (0,0,0,0))
     textdraw = ImageDraw.Draw(textlayer)
 
-    toptextsize = textdraw.textsize(toptext, font=font)
-    bottomtextsize = textdraw.textsize(bottomtext, font=font)
-    toppos = top_text_pos(out_image.size, toptextsize, margin)
-    bottompos = bottom_text_pos(out_image.size, bottomtextsize, margin)
+    if toptext:
+        toptextsize = textdraw.textsize(toptext, font=font)
+        toppos = top_text_pos(out_image.size, toptextsize, margin)
+        textdraw.text(toppos, toptext, font=font, fill=color)
 
-    textdraw.text(toppos, toptext, font=font, fill=color)
-    textdraw.text(bottompos, bottomtext, font=font, fill=color)
+    if bottomtext:
+        bottomtextsize = textdraw.textsize(bottomtext, font=font)
+        bottompos = bottom_text_pos(out_image.size, bottomtextsize, margin)
+        textdraw.text(bottompos, bottomtext, font=font, fill=color)
 
     return Image.composite(textlayer, out_image, textlayer)
 
@@ -115,15 +117,16 @@ def image_info(image_hash):
 
 @application.route('/api/v1.0/images/<string:image_hash>/render', methods = ['GET'])
 def render_image(image_hash):
-    toptext = "IF ALL APPS ARE RED"
-    bottomtext = "NONE ARE!"
+    toptext = request.args.get("toptext")
+    bottomtext = request.args.get("bottomtext")
+    textsize = int(request.args.get("textsize", "60"))
     key = bucket.get_key(image_hash)
     if key:
         in_buffer = io.BytesIO()
         key.get_contents_to_file(in_buffer)
         in_buffer.seek(0)
         im = Image.open(in_buffer)
-        im = make_meme(im, toptext, bottomtext)
+        im = make_meme(im, toptext, bottomtext, textsize)
         out_buffer = io.BytesIO()
         im.save(out_buffer, 'png')
         out_buffer.seek(0)
