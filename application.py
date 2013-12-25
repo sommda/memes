@@ -6,6 +6,7 @@ from werkzeug import secure_filename
 import io
 import os
 import hashlib
+import uuid
 
 from PIL import Image, ImageEnhance, ImageDraw, ImageFont
 
@@ -34,6 +35,21 @@ tasks = [
     }
 ]
 
+memes = [
+    {
+        'id': 1,
+        'top-text': "I don't always copy Google",
+        'bottom-text': "But when I do I copy MEMEGEN",
+        'image-hash': "e44470fd4a7d4252737622b3f2105ea1f22c65ec"
+    },
+    {
+        'id': 2,
+        'top-text': "When every app is Red",
+        'bottom-text': "NONE ARE",
+        'image-hash': "b763100e0573bf75792ee974cf89ea59bc37acf2"
+    }
+]
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
 
@@ -50,29 +66,37 @@ def hash_file_contents(file, block_size=2**14):
 def hello_world():
     return "Hello world!"
 
-@application.route('/todo/api/v1.0/tasks', methods = ['GET'])
-def get_tasks():
-    return jsonify( { 'tasks': tasks } )
-
-@application.route('/todo/api/v1.0/tasks/<int:task_id>', methods = ['GET'])
-def get_task(task_id):
-    task = filter(lambda t: t['id'] == task_id, tasks)
-    if len(task) == 0:
+@application.route('/api/v1.0/memes/<int:meme_id>', methods = ['GET'])
+def get_meme(meme_id):
+    meme = filter(lambda t: t['id'] == meme_id, memes)
+    if len(meme) == 0:
         abort(404)
-    return jsonify( { 'task': task[0] } )
+    return jsonify( { 'meme': meme[0] } )
 
-@application.route('/todo/api/v1.0/tasks', methods = ['POST'])
-def create_task():
-    if not request.json or not 'title' in request.json:
+@application.route('/api/v1.0/memes/<int:meme_id>/render', methods = ['GET'])
+def render_meme(meme_id):
+    meme = filter(lambda t: t['id'] == meme_id, memes)
+    if len(meme) == 0:
+        abort(404)
+    meme_image_hash = meme[0].get('image-hash')
+    if not meme_image_hash:
+        abort(404)
+    return render_meme_image(meme_image_hash, meme[0].get('top-text'),
+                             meme[0].get('bottom-text'),
+                             30)
+
+@application.route('/api/v1.0/memes', methods = ['POST'])
+def create_meme():
+    if not request.json:
         abort(400)
-    task = {
-        'id': tasks[-1]['id'] + 1,
-        'title': request.json['title'],
-        'description': request.json.get('description', ""),
-        'done': False
+    meme = {
+        'id': len(memes) + 1,
+        'image-hash': request.json['image-hash'],
+        'top-text': request.json['top-text'],
+        'bottom-text': request.json['bottom-text']
     }
-    tasks.append(task)
-    return jsonify( { 'task': task } ), 201
+    memes.append(task)
+    return jsonify( { 'meme': meme } ), 201
 
 def top_text_pos(imagesize,textsize,margin):
     xcoord = imagesize[0]/2-textsize[0]/2
@@ -81,7 +105,7 @@ def top_text_pos(imagesize,textsize,margin):
     
 def bottom_text_pos(imagesize,textsize,margin):
     xcoord = imagesize[0]/2-textsize[0]/2
-    ycoord = imagesize[1]-textsize[1]-margin[1]-20
+    ycoord = imagesize[1]-textsize[1]-margin[1]
     return (xcoord,ycoord)
 
 def make_meme(image, toptext, bottomtext, textsize, textface="fonts/Impact.ttf", color="white"):
@@ -115,11 +139,7 @@ def image_info(image_hash):
         (width, height) = im.size
         return jsonify( { 'width': width, 'height': height } )
 
-@application.route('/api/v1.0/images/<string:image_hash>/render', methods = ['GET'])
-def render_image(image_hash):
-    toptext = request.args.get("toptext")
-    bottomtext = request.args.get("bottomtext")
-    textsize = int(request.args.get("textsize", "60"))
+def render_meme_image(image_hash, toptext, bottomtext, textsize):
     key = bucket.get_key(image_hash)
     if key:
         in_buffer = io.BytesIO()
@@ -134,7 +154,27 @@ def render_image(image_hash):
     else:
         abort(404)
 
-@application.route('/api/v1.0/images', methods = ['POST'])
+@application.route('/api/v1.0/images/<string:image_hash>/render', methods = ['GET'])
+def render_image(image_hash):
+    toptext = request.args.get("toptext")
+    bottomtext = request.args.get("bottomtext")
+    textsize = int(request.args.get("textsize", "60"))
+    return render_meme_image(image_hash, toptext, bottomtext, textsize)
+
+@application.route('/api/v1.0/images', methods = ['GET', 'POST'])
+def handle_images():
+    if request.method == 'GET':
+        return get_images();
+    elif request.method == 'POST':
+        return create_image();
+
+def get_images():
+    results = []
+    for key in bucket.list():
+        results.append( { "hash": key.name,
+                          "url": "/api/v1.0/images/" + key.name + "/render" } )
+    return jsonify( { "images": results } )
+
 def create_image():
     uploaded_file = request.files['file']
     if uploaded_file and allowed_file(uploaded_file.filename):
