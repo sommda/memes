@@ -2,14 +2,17 @@
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 from flask import Flask, jsonify, abort, request, make_response, redirect, url_for, send_file
+from flask import render_template
 from werkzeug import secure_filename
 import io
 import os
 import hashlib
 import uuid
+import datetime
 
 from PIL import Image, ImageEnhance, ImageDraw, ImageFont
 
+from boto.dynamodb2.table import Table
 
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif', 'bmp'])
 
@@ -17,7 +20,7 @@ application = Flask(__name__)
 application.debug=True
 application.config['UPLOAD_FOLDER'] = '/Users/sommda/python/memes_service/files'
 
-conn = S3Connection('AKIAIR6KVOWNHSWCGGHQ', '3TCc+54FSTcT85pNpwEMQhUJ5gZrF4wYnP1KKnLE')
+conn = S3Connection()
 bucket = conn.get_bucket('meme-images-us-west-2', validate = False)
 
 tasks = [
@@ -63,8 +66,8 @@ def hash_file_contents(file, block_size=2**14):
     return hash.hexdigest()
 
 @application.route('/')
-def hello_world():
-    return "Hello world!"
+def root():
+    return render_template('memegen.html')
 
 @application.route('/api/v1.0/memes/<int:meme_id>', methods = ['GET'])
 def get_meme(meme_id):
@@ -85,17 +88,37 @@ def render_meme(meme_id):
                              meme[0].get('bottom-text'),
                              30)
 
-@application.route('/api/v1.0/memes', methods = ['POST'])
+@application.route('/api/v1.0/memes', methods = ['GET','POST'])
+def handle_memes():
+    if request.method == 'GET':
+        return get_memes()
+    elif request.method == 'POST':
+        return create_meme()
+
+def get_memes():
+    result = []
+    memes = Table('Memes')
+    for meme in memes.scan():
+        result.append( { 'image-hash': meme['image-hash'],
+                         'top-text': meme['top-text'],
+                         'bottom-text': meme['bottom-text'],
+                         'create-time': meme['create-time'],
+                         'id': str(meme['id'])
+                       } )
+    return jsonify( { 'memes': result } )
+
 def create_meme():
-    if not request.json:
-        abort(400)
+    if not request.form.get('image-hash'):
+        return jsonify( { 'message': 'image-hash is required' } ), 400
+    memes = Table('Memes')
     meme = {
-        'id': len(memes) + 1,
-        'image-hash': request.json['image-hash'],
-        'top-text': request.json['top-text'],
-        'bottom-text': request.json['bottom-text']
+        'id': str(uuid.uuid4()),
+        'image-hash': request.form.get('image-hash'),
+        'top-text': request.form.get('top-text'),
+        'bottom-text': request.form.get('bottom-text'),
+        'create-time': datetime.datetime.now().isoformat()
     }
-    memes.append(task)
+    memes.put_item(data = meme)
     return jsonify( { 'meme': meme } ), 201
 
 def top_text_pos(imagesize,textsize,margin):

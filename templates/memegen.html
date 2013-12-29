@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Meme Generator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Boostrap CSS -->
+    <link href="static/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="static/jquery-ui.custom.min.css" rel="stylesheet" />
+  </head>
+
+  <body>
+    <!-- JQuery -->
+    <script type="text/javascript" src="static/jquery-2.0.3.js"></script>
+    <script type="text/javascript" src="static/jquery-ui.custom.min.js"></script>
+
+    <!-- Bootstrap JS -->
+    <script src="static/dist/js/bootstrap.min.js"></script>
+
+    <!-- Memegen JS -->
+    <script src="static/memegen.js"></script>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-default" role="navigation">
+      <ul class="nav navbar-nav">
+	<li class="active" id="show-view"><a href="#">View</a></li>
+	<li id="show-create"><a href="#">Create</a></li>
+	<li id="show-profile"><a href="#">Profile</a></li>
+      </ul>
+    </nav>
+
+    <!-- Interface for viewing memes -->
+    <div class="container" id="view-interface">
+      <div id="temp-image-holder"></div>
+      <div class="row" id="meme-holder"></div>
+    </div>
+
+    <!-- Interface for creating memes and templates -->
+    <div class="container" id="create-interface">
+      <div class="row">
+	<div class="col-md-12">
+	  <h3>Make a meme</h3>
+	</div>
+      </div>
+      <div class="row">
+        <div class="col-md-6">
+	  <div class="row">
+	    <div class="col-md-3">Image</div>
+	    <div class="col-md-9"><input id="image-hash" class="form-control" placeholder="Image Hash"></input></div>
+	  </div>
+	  <div class="row">
+	    <div class="col-md-3">Top Text</div>
+	    <div class="col-md-9"><input id="top-text" class="form-control" placeholder="Top Text"></input></div>
+	  </div>
+	  <div class="row">
+	    <div class="col-md-3">Bottom Text</div>
+	    <div class="col-md-9"><input id="bottom-text" class="form-control" placeholder="Bottom Text"></input></div>
+	  </div>
+	  <div class="row">
+	    <div class="col-md-12">
+	      <button id="get-images" class="btn btn-default">Get Images</button>
+	      <button id="create-meme" class="btn btn-default">Create</button>
+	      <button id="upload-image" class="btn btn-default">Upload Image</button>
+	      <form id="upload-image-form" enctype="multipart/form-data">
+		<input name="file" type="file" />
+              </form>
+	    </div>
+	  </div>
+	  <div class="row">
+	    <div class="col-md-12" id="image-holder"></div>
+	  </div>
+	</div>
+	<div class="col-md-6">
+	  <canvas id="meme" width="512" height="512" style="border:1px solid #000000;">
+	  </canvas>
+	</div>
+      </div>
+    </div>
+  </body>
+</html>
