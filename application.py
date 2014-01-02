@@ -9,6 +9,8 @@ import os
 import hashlib
 import uuid
 import datetime
+import string
+from Crypto.Random.random import sample, getrandbits
 
 from PIL import Image, ImageEnhance, ImageDraw, ImageFont
 
@@ -38,21 +40,6 @@ tasks = [
     }
 ]
 
-memes = [
-    {
-        'id': 1,
-        'top-text': "I don't always copy Google",
-        'bottom-text': "But when I do I copy MEMEGEN",
-        'image-hash': "e44470fd4a7d4252737622b3f2105ea1f22c65ec"
-    },
-    {
-        'id': 2,
-        'top-text': "When every app is Red",
-        'bottom-text': "NONE ARE",
-        'image-hash': "b763100e0573bf75792ee974cf89ea59bc37acf2"
-    }
-]
-
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
 
@@ -69,24 +56,129 @@ def hash_file_contents(file, block_size=2**14):
 def root():
     return render_template('memegen.html')
 
-@application.route('/api/v1.0/memes/<int:meme_id>', methods = ['GET'])
-def get_meme(meme_id):
-    meme = filter(lambda t: t['id'] == meme_id, memes)
-    if len(meme) == 0:
-        abort(404)
-    return jsonify( { 'meme': meme[0] } )
+@application.route('/api/v1.0/users', methods = ['GET','POST'])
+def handle_users():
+    if request.method == 'GET':
+        return get_users()
+    elif request.method == 'POST':
+        return create_user()
 
-@application.route('/api/v1.0/memes/<int:meme_id>/render', methods = ['GET'])
+def generate_salt(length):
+    return ''.join(sample(list(string.ascii_lowercase), length))
+
+def create_user():
+    if not request.form.get('user-id'):
+        return jsonify( { 'message': 'user-id is required' } ), 400
+    if not request.form.get('password'):
+        return jsonify( { 'message': 'password is required' } ), 400
+    users = Table('Users')
+    user_id = request.form.get('user-id')
+    password = request.form.get('password')
+    kwargs = { 'user-id': user_id }
+    if users.get_item(**kwargs):
+        return jsonify( { 'message': 'user-id ' + user_id + 'is already in use' } ), 400
+    salt = generate_salt(12)
+    user = {
+        'user-id': user_id,
+        'create-time': datetime.datetime.now().isoformat(),
+        'password-hash': hashlib.sha256(salt + password).hexdigest(),
+        'password-salt': salt
+    }
+    users.put_item(data = user)
+    return jsonify( { 'user-id': user_id,
+                      'create-time': user['create-time'] } ), 201
+
+def get_users():
+    users = Table('Users')
+    for user in users.scan():
+        result.append( { 'user-id': user['user-id'],
+                         'create-time': user['create-time']
+                       } )
+    return jsonify( { 'users': result } )
+
+def generate_session_id():
+    randint = getrandbits(128)
+    return str(uuid.UUID(int = randint))
+
+@application.route('/api/v1.0/login', methods = ['POST'])
+def login():
+    users = Table('Users')
+
+    # Check that the user exists
+    user_id = request.form.get('user-id')
+    kwargs = { 'user-id': user_id }
+    user = users.get_item(**kwargs)
+    if not user:
+        return jsonify( { 'message': 'unknown user-id/password combination' } ), 400
+
+    # Check that the password matches
+    password = request.form.get('password')
+    password_hash = hashlib.sha256(user['password-salt'] + password).hexdigest()
+    if password_hash != user['password-hash']:
+#        return jsonify( { 'message': 'unknown user-id/password combination' } ), 400
+        return jsonify( { 'message': 'cannot login with ' + user_id + '/' + password } ), 400
+
+    # Create a new session
+    sessions = Table('Sessions')
+    session = {
+        'session-id': generate_session_id(),
+        'create-time': datetime.datetime.now().isoformat(),
+        'user-id': user_id
+    }
+    sessions.put_item(data = session)
+    return jsonify( { 'session': session } ), 201    
+
+
+@application.route('/api/v1.0/memes/<string:meme_id>', methods = ['GET'])
+def get_meme(meme_id):
+    memes = Table('Memes')
+    meme = memes.get_item(id=meme_id)
+    return jsonify( { 'meme-id': meme['meme-id'],
+                      'user-id': meme['user-id'],
+                      'top-text': meme['top-text'],
+                      'bottom-text': meme['bottom-text'],
+                      'create-time': meme['create-time'],
+                      'image-hash': meme['image-hash']
+                      } )
+
+@application.route('/api/v1.0/memes/<string:meme_id>/render', methods = ['GET'])
 def render_meme(meme_id):
-    meme = filter(lambda t: t['id'] == meme_id, memes)
-    if len(meme) == 0:
+    memes = Table('Memes')
+    kwargs = { 'meme-id': meme_id }
+    meme = memes.get_item(**kwargs)
+    if not meme:
         abort(404)
-    meme_image_hash = meme[0].get('image-hash')
+    meme_image_hash = meme['image-hash']
     if not meme_image_hash:
         abort(404)
-    return render_meme_image(meme_image_hash, meme[0].get('top-text'),
-                             meme[0].get('bottom-text'),
+    return render_meme_image(meme_image_hash, meme['top-text'],
+                             meme['bottom-text'],
                              30)
+
+@application.route('/api/v1.0/memes/<string:meme_id>/votes', methods = ['POST'])
+def vote_meme(meme_id):
+    session_id = request.cookies.get('session-id')
+    if not session_id:
+        return jsonify( { 'message': 'must be logged in' } ), 400
+    sessions = Table('Sessions')
+    kwargs = { 'session-id': session_id }
+    session = sessions.get_item(**kwargs)
+    if not session:
+        return jsonify( { 'message': 'invalid session' } ), 400
+    user_id = session['user-id']
+
+    memes = Table('Memes')
+    kwargs = { 'meme-id': meme_id }
+    meme = memes.get_item(**kwargs)
+    if not meme:
+        abort(404)
+    vote = request.form.get('vote')
+    if not vote:
+        vote = 1
+    return jsonify( { 'user_id': user_id,
+                      'meme_id': meme_id,
+                      'vote': vote
+                      } )
 
 @application.route('/api/v1.0/memes', methods = ['GET','POST'])
 def handle_memes():
@@ -103,16 +195,28 @@ def get_memes():
                          'top-text': meme['top-text'],
                          'bottom-text': meme['bottom-text'],
                          'create-time': meme['create-time'],
-                         'id': str(meme['id'])
+                         'meme-id': str(meme['meme-id']),
+                         'user-id': str(meme['user-id'])
                        } )
     return jsonify( { 'memes': result } )
 
 def create_meme():
+    session_id = request.cookies.get('session-id')
+    if not session_id:
+        return jsonify( { 'message': 'must be logged in' } ), 400
+    sessions = Table('Sessions')
+    kwargs = { 'session-id': session_id }
+    session = sessions.get_item(**kwargs)
+    if not session:
+        return jsonify( { 'message': 'invalid session' } ), 400
+    user_id = session['user-id']
+
     if not request.form.get('image-hash'):
         return jsonify( { 'message': 'image-hash is required' } ), 400
     memes = Table('Memes')
     meme = {
-        'id': str(uuid.uuid4()),
+        'meme-id': str(uuid.uuid4()),
+        'user-id': user_id,
         'image-hash': request.form.get('image-hash'),
         'top-text': request.form.get('top-text'),
         'bottom-text': request.form.get('bottom-text'),
